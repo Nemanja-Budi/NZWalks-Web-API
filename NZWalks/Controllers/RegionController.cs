@@ -7,35 +7,51 @@ using NZWalks.API.Models.DTO;
 using NZWalks.CustomActionFilters;
 using NZWalks.Data;
 using NZWalks.Repositories;
+using System.Text.Json;
 
 namespace NZWalks.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class RegionController : ControllerBase
     {
         private readonly NZWalksDBContext dbContext;
         private readonly IRegionRepository regionRepository;
         private readonly IMapper mapper;
+        private readonly ILogger<RegionController> logger;
 
-        public RegionController(NZWalksDBContext dBContext, IRegionRepository regionRepository,IMapper mapper)
+        public RegionController(NZWalksDBContext dBContext, IRegionRepository regionRepository,IMapper mapper, ILogger<RegionController> logger)
         {
             this.dbContext = dBContext;
             this.regionRepository = regionRepository;
             this.mapper = mapper;
+            this.logger = logger;
         }
         [HttpGet]
+        //[Authorize(Roles = "Reader")]
         public async Task<IActionResult> GetAll()
         {
-            var regionsDomain = await regionRepository.GetAllAsync();
-            var regionsDto = mapper.Map<List<RegionDto>>(regionsDomain);
+            try
+            {
+                throw new Exception("This is a custom exception");
+                var regionsDomain = await regionRepository.GetAllAsync();
 
-            return Ok(regionsDto);
+                logger.LogInformation($"Finished GetAllRegions request with data: {JsonSerializer.Serialize(regionsDomain)}");
+
+                return Ok(mapper.Map<List<RegionDto>>(regionsDomain));
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, ex.Message);
+                throw;
+            }
+
+          
         }
 
         [HttpGet]
         [Route("{id:Guid}")]
+        [Authorize(Roles = "Reader")]
         public async Task<IActionResult> GetById([FromRoute] Guid id)
         {
             var regionDomain = await regionRepository.GetByIdAsync(id);
@@ -50,6 +66,7 @@ namespace NZWalks.Controllers
 
         [HttpPost]
         [ValidateModelAtribute]
+        [Authorize(Roles = "Writer")]
         public async Task<IActionResult> Create([FromBody] AddRegionRequestDto addRegionRequestDto)
         {
             var regionDomainModel = mapper.Map<Region>(addRegionRequestDto);
@@ -62,6 +79,7 @@ namespace NZWalks.Controllers
         [HttpPut]
         [Route("{id:Guid}")]
         [ValidateModelAtribute]
+        [Authorize(Roles = "Writer")]
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateRegionRequesDto updateRegionRequesDto)
         {
             var regionDomainModel = mapper.Map<Region>(updateRegionRequesDto);
@@ -77,6 +95,7 @@ namespace NZWalks.Controllers
 
         [HttpDelete]
         [Route("{id:Guid}")]
+        [Authorize(Roles = "Writer,Reader")]
         public async Task<IActionResult> Delete([FromRoute] Guid id)
         {
             var regionDomainModel = await regionRepository.DeleteAsync(id);
